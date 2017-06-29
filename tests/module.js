@@ -1,6 +1,6 @@
 const assert = require('assert');
 const should = require('should');
-const Module = require('../base/module');
+const Module = require('../module');
 
 describe('Module', function(){
   describe('Конфигурирование стандартных модулей', function(){
