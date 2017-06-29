@@ -5,9 +5,11 @@ class Configurable {
   }
 
   configure(config) {
-    for (let name in config) {
-      if (config.hasOwnProperty(name)) {
-        this[name] = config[name];
+    if (typeof config === 'object' && config) {
+      for (let name in config) {
+        if (config.hasOwnProperty(name)) {
+          this[name] = config[name];
+        }
       }
     }
   }

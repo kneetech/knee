@@ -40,6 +40,10 @@ function queue(collection, handler) {
 class Module extends Configurable {
 
   configure(config) {
+    if (this.constructor.hasOwnProperty('defaults')) {
+      config = Object.assign({}, this.constructor.defaults, config);
+    }
+
     super.configure(config);
 
     this.onInitialized = Promise.resolve()
@@ -69,23 +73,7 @@ class Module extends Configurable {
       }
     }
 
-    config = this.moduleConfigPrepare(Class, config);
-
     return new Class(config);
-  }
-
-  /**
-   * Подготовит конфигурацию модуля
-   * @param {Function} Class
-   * @param {Object} config
-   * @return {Object}
-   */
-  moduleConfigPrepare(Class, config) {
-    if (Class.hasOwnProperty('defaults')) {
-      config = Object.assign({}, Class.defaults, config);
-    }
-
-    return config;
   }
 
   /**
@@ -148,22 +136,12 @@ class Module extends Configurable {
       }
     }
 
-    this.moduleInstancePrepare(instance);
-
     return instance.onInitialized
         .then(() => {
           if (typeof instance.__basename === 'object' && instance.__basename) {
             this.moduleMount(instance);
           }
         });
-  }
-
-  /**
-   * Подготовит модуль
-   * @param {Module} instance
-   */
-  moduleInstancePrepare(instance) {
-
   }
 }
 
