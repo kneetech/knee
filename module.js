@@ -2,46 +2,87 @@ const Configurable = require('./configurable');
 const fs = require('fs');
 const path = require('path');
 
-function queue(collection, handler) {
-  let index = 0,
-      keys = Array.isArray(collection) ? new Array(collection.length) : Object.keys(collection);
-
-  function next() {
-    let result,
-        key = keys[index] || index;
-
-    if (keys.length > index) {
-      result = handler(collection[key], key);
-
-      if (result instanceof Promise === false) {
-        result = Promise.resolve(result);
-      }
-
-      return result
-          .then(function(result){
-            if (result != undefined) {
-              collection[key] = result;
-            }
-          })
-          .then(function(){ index++; })
-          .then(next);
-    }
-
-    return Promise.resolve(result);
-  }
-
-  return next().then(() => collection);
-}
-
 /**
- * @property {Object} components
- * @property {Array} modules
+ * Модуль
+ * @property {String} __filename Имя файла модуля
+ * @property {String|Object} __basename Имя модуля в родительском модуле
+ * @property {Array} modules Дочерние модули
  */
 class Module extends Configurable {
 
+  /**
+   * Последовательно вызовет обработчик для каждого элемента коллекции
+   * Если обработчик вернёт результат отличный от `undefined`, он будет
+   * записан в коллекцию
+   * @param {Array|Object} collection
+   * @param {Function} handler
+   * @return {Promise}
+   */
+  static queue(collection, handler) {
+    let index = 0;
+    let keys = Object.keys(collection);
+
+    function next() {
+      if (keys.length > index) {
+        let key = keys[index];
+        let result = handler(collection[key], key);
+
+        if (result instanceof Promise === false) {
+          result = Promise.resolve(result);
+        }
+
+        return result
+            .then((result) => result !== undefined && (collection[key] = result))
+            .then(() => index++)
+            .then(next);
+      }
+
+      return Promise.resolve();
+    }
+
+    return next().then(() => collection);
+  }
+
+  /**
+   * Рекурсивно объеденит несколько исходных объектов в один целевой
+   * Каждое свойство исходного объекта будет скопировано в целевой
+   * только если целевой объект не имеет этого свойства или оно строго
+   * равно `undefined`
+   * @param {Array|Object} target
+   * @param {Array|Object} sources
+   * @return {*}
+   */
+  static mixed(target, ...sources) {
+    let mixable = (some) => Array.isArray(some) || (typeof some === 'object' && some);
+
+    if (mixable(target)) {
+      while (sources.length) {
+        let source = sources.shift();
+
+        if (mixable(source)) {
+          let sourceKeys = Object.keys(source);
+
+          for (let i = 0; i < sourceKeys.length; i++) {
+            let sourceKey = sourceKeys[i];
+
+            if (target.hasOwnProperty(sourceKey) && target[sourceKey] !== undefined) {
+              if (mixable(target[sourceKey]) && mixable(source[sourceKey])) {
+                Module.mixed(target[sourceKey], source[sourceKey]);
+              }
+            } else {
+              target[sourceKey] = source[sourceKey];
+            }
+          }
+        }
+      }
+    }
+
+    return target;
+  }
+
   configure(config) {
     if (this.constructor.hasOwnProperty('defaults')) {
-      config = Object.assign({}, this.constructor.defaults, config);
+      config = Module.mixed({}, config, this.constructor.defaults);
     }
 
     super.configure(config);
@@ -78,7 +119,7 @@ class Module extends Configurable {
 
   /**
    * Устновит модуль или его свойства в текущий объект
-   * @param {Module} instance
+   * @param {Object} instance
    */
   moduleMount(instance) {
     for (let name in instance.__basename) {
@@ -118,7 +159,7 @@ class Module extends Configurable {
    */
   modulesLoad() {
     if (this.hasOwnProperty('modules')) {
-      return queue(this.modules, (config) => this.moduleLoad(config));
+      return Module.queue(this.modules, (config) => this.moduleLoad(config || {}));
     }
   }
 
@@ -137,11 +178,11 @@ class Module extends Configurable {
     }
 
     return instance.onInitialized
-        .then(() => {
-          if (typeof instance.__basename === 'object' && instance.__basename) {
-            this.moduleMount(instance);
-          }
-        });
+      .then(() => {
+        if (typeof instance.__basename === 'object' && instance.__basename) {
+          this.moduleMount(instance);
+        }
+      });
   }
 }
 
