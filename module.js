@@ -107,7 +107,7 @@ class Module extends Configurable {
     let Class = Module;
 
     if (config.hasOwnProperty('__filename')) {
-      if (/^\.\?\//.test(config.__filename)) {
+      if (/^\.\.?\//.test(config.__filename)) {
         Class = require(path.resolve(this.__filename, config.__filename));
       } else {
         Class = require(config.__filename);
