@@ -80,6 +80,20 @@ class Module extends Configurable {
     return target;
   }
 
+  /**
+   * Создаст эксземпляр с конфигурацией принятой в process.argv[2]
+   * @return {Module}
+   */
+  static create() {
+    let config = {};
+
+    if (typeof process.argv[2] === 'string') {
+      config = require(process.argv.splice(2, 1)[0]);
+    }
+
+    return new this(config);
+  }
+
   configure(config) {
     if (this.constructor.hasOwnProperty('defaults')) {
       config = Module.mixed({}, config, this.constructor.defaults);
