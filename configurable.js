@@ -11,6 +11,7 @@ class Configurable {
   static get TYPE_STRING() { return 0b00010000000; }
   static get TYPE_UNDEFINED() { return 0b00100000000; }
   static get TYPE_PROMISE() { return 0b01000000000; }
+  static get TYPE_MODULE() { return 0b10000000000; }
   static get TYPE_ALL() { return 0b11111111111; }
 
   static type(some, mask) {
@@ -112,6 +113,10 @@ class Configurable {
     return Promise.all([target, source]);
   }
 
+  static combine_module(target, source) {
+    return source;
+  }
+
   static combine(target, sources, combiners = {}) {
     let targetType = this.type(target),
         combineType = `combine_${targetType}`,
@@ -134,6 +139,40 @@ class Configurable {
 
     return target;
   }
+
+  /**
+   * Последовательно вызовет обработчик для каждого элемента коллекции
+   * Если обработчик вернёт результат отличный от `undefined`, он будет
+   * записан в коллекцию
+   * @param {Array|Object} collection
+   * @param {Function} handler
+   * @return {Promise}
+   */
+  static queue(collection, handler) {
+    let index = 0;
+    let keys = Object.keys(collection);
+
+    function next() {
+      if (keys.length > index) {
+        let key = keys[index];
+        let result = handler(collection[key], key);
+
+        if (result instanceof Promise === false) {
+          result = Promise.resolve(result);
+        }
+
+        return result
+            .then((result) => result !== undefined && (collection[key] = result))
+            .then(() => index++)
+            .then(next);
+      }
+
+      return Promise.resolve();
+    }
+
+    return next().then(() => collection);
+  }
+
 
   constructor(config) {
     this.configure(config);
