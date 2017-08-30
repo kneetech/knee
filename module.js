@@ -44,43 +44,6 @@ class Module extends Configurable {
   }
 
   /**
-   * Рекурсивно объеденит несколько исходных объектов в один целевой
-   * Каждое свойство исходного объекта будет скопировано в целевой
-   * только если целевой объект не имеет этого свойства или оно строго
-   * равно `undefined`
-   * @param {Array|Object} target
-   * @param {Array|Object} sources
-   * @return {*}
-   */
-  static mixed(target, ...sources) {
-    let mixable = (some) => Array.isArray(some) || (typeof some === 'object' && some);
-
-    if (mixable(target)) {
-      while (sources.length) {
-        let source = sources.shift();
-
-        if (mixable(source)) {
-          let sourceKeys = Object.keys(source);
-
-          for (let i = 0; i < sourceKeys.length; i++) {
-            let sourceKey = sourceKeys[i];
-
-            if (target.hasOwnProperty(sourceKey) && target[sourceKey] !== undefined) {
-              if (mixable(target[sourceKey]) && mixable(source[sourceKey])) {
-                Module.mixed(target[sourceKey], source[sourceKey]);
-              }
-            } else {
-              target[sourceKey] = source[sourceKey];
-            }
-          }
-        }
-      }
-    }
-
-    return target;
-  }
-
-  /**
    * Создаст эксземпляр с конфигурацией принятой в process.argv[2]
    * @return {Module}
    */
@@ -96,13 +59,13 @@ class Module extends Configurable {
 
   configure(config) {
     if (this.constructor.hasOwnProperty('defaults')) {
-      config = Module.mixed({}, config, this.constructor.defaults);
+      config = Module.combine({}, [this.constructor.defaults, config]);
     }
 
     super.configure(config);
 
     this.onInitialized = Promise.resolve()
-        .then(() => delete this.onInitialized)
+        // .then(() => delete this.onInitialized)
         .then(() => this.modulesLoad())
         .then(() => this.initialize())
         .catch((error) => console.error(error));
@@ -121,6 +84,9 @@ class Module extends Configurable {
     let Class = Module;
 
     if (config.hasOwnProperty('__filename')) {
+      if (this.constructor.instances.hasOwnProperty(config.__filename)) {
+        return this.constructor.instances[config.__filename];
+      }
       if (/^\.\.?\//.test(config.__filename)) {
         Class = require(path.resolve(this.__filename, config.__filename));
       } else {
@@ -128,7 +94,13 @@ class Module extends Configurable {
       }
     }
 
-    return new Class(config);
+    let instance = new Class(config);
+
+    if (config.hasOwnProperty('__single') && config.__single === true) {
+      this.constructor.instances[config.__filename] = instance;
+    }
+
+    return instance;
   }
 
   /**
@@ -185,19 +157,23 @@ class Module extends Configurable {
   moduleLoad(config) {
     let instance = this.moduleCreate(config);
 
-    if (instance.hasOwnProperty('__basename')) {
-      if (typeof instance.__basename === 'string') {
-        this.setup(instance.__basename, instance);
-      }
+    if (!instance.hasOwnProperty('__basename') && config.hasOwnProperty('__basename')) {
+      instance.__basename = config.__basename;
+    }
+
+    if (this.constructor.type(instance.__basename, this.constructor.TYPE_STRING)) {
+      this.setup(instance.__basename, instance);
     }
 
     return instance.onInitialized
-      .then(() => {
-        if (typeof instance.__basename === 'object' && instance.__basename) {
-          this.moduleMount(instance);
-        }
-      });
+        .then(() => {
+          if (this.constructor.type(instance.__basename, this.constructor.TYPE_OBJECT)) {
+            this.moduleMount(instance);
+          }
+        });
   }
 }
+
+Module.instances = {};
 
 module.exports = Module;
