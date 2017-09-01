@@ -345,9 +345,7 @@ describe('Module', function(){
   });
 
   context('share', () => {
-
     it('Публикация модуля', (done) => {
-
       new Module({
         initialize() {
           // доступ ко включённым модулям
@@ -369,8 +367,6 @@ describe('Module', function(){
           __basename: 'sharedModule2' // влключение его в родительский модуль под именем 'sharedModule2'
         }]
       })
-
     });
-
   });
 });

@@ -11,7 +11,7 @@ class Module extends Configurable {
 
   static get KEY_BASENAME() { return '__basename'; }
   static get KEY_FILENAME() { return '__filename'; }
-  static get KEY_SHARE() { return '__share'; }
+  static get KEY_DEFINE() { return '__define'; }
   static get KEY_INJECT() { return '__inject'; }
   static get KEY_MODULES() { return 'modules'; }
   static get KEY_DEFAULTS() { return 'defaults'; }
@@ -92,6 +92,8 @@ class Module extends Configurable {
             }
           } else if (this.constructor.type(name, this.constructor.TYPE_FUNCTION)) {
             value = name(module);
+          } else {
+            throw new Error(`Свойство ${module.constructor.name}.__basename.${key} содержит не допустимое значение`);
           }
 
           this.moduleInject(target, key, value);
@@ -123,8 +125,8 @@ class Module extends Configurable {
     if (!config.hasOwnProperty(this.constructor.KEY_INJECT)) {
       let instance = this.moduleCreate(config);
 
-      if (config.hasOwnProperty(this.constructor.KEY_SHARE)) {
-        this.moduleSetToScope(config[this.constructor.KEY_SHARE], instance);
+      if (config.hasOwnProperty(this.constructor.KEY_DEFINE)) {
+        this.moduleSetToScope(config[this.constructor.KEY_DEFINE], instance);
       }
 
       return instance.onInitialized
@@ -139,14 +141,16 @@ class Module extends Configurable {
 
     let instance = this.moduleGetFromScope(config[this.constructor.KEY_INJECT]);
 
-    if (config.hasOwnProperty(this.constructor.KEY_SHARE)) {
-      this.moduleSetToScope(config[this.constructor.KEY_SHARE], instance);
+    if (config.hasOwnProperty(this.constructor.KEY_DEFINE)) {
+      this.moduleSetToScope(config[this.constructor.KEY_DEFINE], instance);
     }
 
     if (config.hasOwnProperty(this.constructor.KEY_BASENAME)) {
       this.moduleBased(this, config[this.constructor.KEY_BASENAME], instance);
     } else if (instance.hasOwnProperty(this.constructor.KEY_BASENAME)) {
       this.moduleBased(this, instance[this.constructor.KEY_BASENAME], instance);
+    } else {
+      throw new Error(`Не удалось включить модуль ${instance.constructor.name} в ${this.constructor.name} т.к. не определена опция __basename`);
     }
   }
 
