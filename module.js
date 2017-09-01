@@ -81,13 +81,20 @@ class Module extends Configurable {
     } else if (this.constructor.type(basename, this.constructor.TYPE_OBJECT)) {
       for (let key in basename) {
         if (basename.hasOwnProperty(key)) {
-          let name = basename[key];
+          let name = basename[key],
+              value;
 
           if (this.constructor.type(name, this.constructor.TYPE_STRING)) {
-            this.moduleInject(target, key, module[name]);
+            if (this.constructor.type(module[name], this.constructor.TYPE_FUNCTION)) {
+              value = module[name].bind(module);
+            } else {
+              value = module[name];
+            }
           } else if (this.constructor.type(name, this.constructor.TYPE_FUNCTION)) {
-            this.moduleInject(target, key, name(module));
+            value = name(module);
           }
+
+          this.moduleInject(target, key, value);
         }
       }
     }
@@ -117,7 +124,7 @@ class Module extends Configurable {
       let instance = this.moduleCreate(config);
 
       if (config.hasOwnProperty(this.constructor.KEY_SHARE)) {
-        SCOPE.set(config[this.constructor.KEY_SHARE], instance);
+        this.moduleSetToScope(config[this.constructor.KEY_SHARE], instance);
       }
 
       return instance.onInitialized
@@ -130,10 +137,10 @@ class Module extends Configurable {
           });
     }
 
-    let instance = SCOPE.get(config[this.constructor.KEY_INJECT]);
+    let instance = this.moduleGetFromScope(config[this.constructor.KEY_INJECT]);
 
     if (config.hasOwnProperty(this.constructor.KEY_SHARE)) {
-      SCOPE.set(config[this.constructor.KEY_SHARE], instance);
+      this.moduleSetToScope(config[this.constructor.KEY_SHARE], instance);
     }
 
     if (config.hasOwnProperty(this.constructor.KEY_BASENAME)) {
@@ -142,26 +149,20 @@ class Module extends Configurable {
       this.moduleBased(this, instance[this.constructor.KEY_BASENAME], instance);
     }
   }
-}
 
-const SCOPE = new Module({
-  initialize() {
-    this.modules = {};
-  },
-
-  get(name) {
+  moduleGetFromScope(name) {
     if (!this.constructor.type(name, this.constructor.TYPE_STRING)) {
       throw new Error(`Неправильное имя модуля ${name}`);
     }
 
-    if (!this.modules.hasOwnProperty(name)) {
-      throw new Error(`Модуль "${name}" не найден среди опубликованных (${Object.keys(this.modules).join()})`);
+    if (!this.constructor.scope.hasOwnProperty(name)) {
+      throw new Error(`Модуль "${name}" не найден среди опубликованных (${Object.keys(this.constructor.scope).join()})`);
     }
 
-    return this.modules[name];
-  },
+    return this.constructor.scope[name];
+  }
 
-  set(name, module) {
+  moduleSetToScope(name, module) {
     if (!this.constructor.type(name, this.constructor.TYPE_STRING)) {
       throw new Error(`Неправильное имя модуля ${name}`);
     }
@@ -170,12 +171,14 @@ const SCOPE = new Module({
       throw new Error(`Не является модулем ${this.constructor.type(module)}`);
     }
 
-    if (this.modules.hasOwnProperty(name)) {
-      throw new Error(`Модуль с имененм ${name} уже был опубликован ранее (${Object.keys(this.modules).join()})`);
+    if (this.constructor.scope.hasOwnProperty(name)) {
+      throw new Error(`Модуль с имененм ${name} уже был опубликован ранее (${Object.keys(this.constructor.scope).join()})`);
     }
 
-    this.modules[name] = module;
+    this.constructor.scope[name] = module;
   }
-});
+}
+
+Module.scope = {};
 
 module.exports = Module;
