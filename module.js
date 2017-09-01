@@ -1,5 +1,4 @@
 const Configurable = require('./configurable');
-const fs = require('fs');
 const path = require('path');
 
 /**
@@ -10,6 +9,14 @@ const path = require('path');
  */
 class Module extends Configurable {
 
+  static get KEY_BASENAME() { return '__basename'; }
+  static get KEY_FILENAME() { return '__filename'; }
+  static get KEY_SHARE() { return '__share'; }
+  static get KEY_INJECT() { return '__inject'; }
+  static get KEY_MODULES() { return 'modules'; }
+  static get KEY_DEFAULTS() { return 'defaults'; }
+  static get KEY_INITIALIZE() { return 'initialize'; }
+
   /**
    * Создаст эксземпляр с конфигурацией принятой в process.argv[2]
    * @return {Module}
@@ -17,7 +24,7 @@ class Module extends Configurable {
   static create() {
     let config = {};
 
-    if (typeof process.argv[2] === 'string') {
+    if (this.constructor.type(process.argv[2], this.constructor.TYPE_STRING)) {
       config = require(process.argv.splice(2, 1)[0]);
     }
 
@@ -25,16 +32,15 @@ class Module extends Configurable {
   }
 
   configure(config) {
-    if (this.constructor.hasOwnProperty('defaults')) {
-      config = Module.combine({}, [this.constructor.defaults, config]);
+    if (this.constructor.hasOwnProperty(this.constructor.KEY_DEFAULTS)) {
+      config = Module.combine({}, [this.constructor[this.constructor.KEY_DEFAULTS], config]);
     }
 
     super.configure(config);
 
     this.onInitialized = Promise.resolve()
-        // .then(() => delete this.onInitialized)
         .then(() => this.modulesLoad())
-        .then(() => this.initialize())
+        .then(() => this[this.constructor.KEY_INITIALIZE]())
         .catch((error) => console.error(error));
   }
 
@@ -50,11 +56,11 @@ class Module extends Configurable {
   moduleCreate(config) {
     let Class = Module;
 
-    if (config.hasOwnProperty('__filename')) {
-      if (/^\.\.?\//.test(config.__filename)) {
-        Class = require(path.resolve(this.__filename, config.__filename));
+    if (config.hasOwnProperty(this.constructor.KEY_FILENAME)) {
+      if (/^\.\.?\//.test(config[this.constructor.KEY_FILENAME])) {
+        Class = require(path.resolve(this[this.constructor.KEY_FILENAME], config[this.constructor.KEY_FILENAME]));
       } else {
-        Class = require(config.__filename);
+        Class = require(config[this.constructor.KEY_FILENAME]);
       }
     }
 
@@ -64,10 +70,6 @@ class Module extends Configurable {
   moduleInject(target, name, module) {
     if (target.hasOwnProperty(name)) {
       throw new Error(`Установить модуль ${module.constructor.name} в ${target.constructor.name}, т.к. свойство с именем "${name}" уже определено`);
-    }
-
-    if (module instanceof this.constructor) {
-      throw new Error(`Включаемое значение не является модулем ${module}`);
     }
 
     target[name] = module;
@@ -96,51 +98,53 @@ class Module extends Configurable {
    * @return {Promise}
    */
   modulesLoad() {
-    if (this.hasOwnProperty('modules')) {
-      return this.constructor.queue(this.modules, (config) => this.moduleLoad(config || {}));
+    if (this.hasOwnProperty(this.constructor.KEY_MODULES)) {
+      return this.constructor.queue(this[this.constructor.KEY_MODULES], (config) => this.moduleLoad(config));
     }
   }
 
   /**
    * Загрузит модули из конфигурации
    * @param {Object} config
+   * @param {String} config.__inject
+   * @param {String} config.__share
+   * @param {String|Object} config.__basename
+   * @param {String} config.__filename
    * @return {Promise}
    */
   moduleLoad(config) {
-    if (config.hasOwnProperty('__share') && !config.hasOwnProperty('__filename')) {
-      let instance = SHARE.get(config.__share),
-          basename = {};
+    if (!config.hasOwnProperty(this.constructor.KEY_INJECT)) {
+      let instance = this.moduleCreate(config);
 
-      if (config.hasOwnProperty('__basename')) {
-        basename = config.__basename;
-      } else if (instance.hasOwnProperty('__basename')) {
-        basename = instance.__basename;
-      } else {
-        throw new Error(`Нельзя включать публичный модуль "${instance.constructor.name}" без указания параметра "__basename" (${this.constructor.name})`);
+      if (config.hasOwnProperty(this.constructor.KEY_SHARE)) {
+        SCOPE.set(config[this.constructor.KEY_SHARE], instance);
       }
 
       return instance.onInitialized
           .then(() => {
-            this.moduleBased(this, basename, instance);
+            if (config.hasOwnProperty(this.constructor.KEY_BASENAME)) {
+              this.moduleBased(this, config[this.constructor.KEY_BASENAME], instance);
+            } else if (instance.hasOwnProperty(this.constructor.KEY_BASENAME)) {
+              this.moduleBased(this, instance[this.constructor.KEY_BASENAME], instance);
+            }
           });
     }
 
-    let instance = this.moduleCreate(config);
+    let instance = SCOPE.get(config[this.constructor.KEY_INJECT]);
 
-    return instance.onInitialized
-        .then(() => {
-          if (instance.hasOwnProperty('__share')) {
-            SHARE.set(instance.__share, instance);
-          }
+    if (config.hasOwnProperty(this.constructor.KEY_SHARE)) {
+      SCOPE.set(config[this.constructor.KEY_SHARE], instance);
+    }
 
-          if (instance.hasOwnProperty('__basename')) {
-            this.moduleBased(this, instance.__basename, instance);
-          }
-        });
+    if (config.hasOwnProperty(this.constructor.KEY_BASENAME)) {
+      this.moduleBased(this, config[this.constructor.KEY_BASENAME], instance);
+    } else if (instance.hasOwnProperty(this.constructor.KEY_BASENAME)) {
+      this.moduleBased(this, instance[this.constructor.KEY_BASENAME], instance);
+    }
   }
 }
 
-const SHARE = new Module({
+const SCOPE = new Module({
   initialize() {
     this.modules = {};
   },
@@ -151,7 +155,7 @@ const SHARE = new Module({
     }
 
     if (!this.modules.hasOwnProperty(name)) {
-      throw new Error(`Модуль "${name}" не найден среди опубликованных`);
+      throw new Error(`Модуль "${name}" не найден среди опубликованных (${Object.keys(this.modules).join()})`);
     }
 
     return this.modules[name];
@@ -162,12 +166,12 @@ const SHARE = new Module({
       throw new Error(`Неправильное имя модуля ${name}`);
     }
 
-    if (module instanceof Module === false) {
+    if (!this.constructor.type(module, this.constructor.TYPE_MODULE)) {
       throw new Error(`Не является модулем ${this.constructor.type(module)}`);
     }
 
     if (this.modules.hasOwnProperty(name)) {
-      throw new Error(`Модуль с имененм ${name} уже был опубликован ранее`);
+      throw new Error(`Модуль с имененм ${name} уже был опубликован ранее (${Object.keys(this.modules).join()})`);
     }
 
     this.modules[name] = module;

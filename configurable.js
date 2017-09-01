@@ -1,18 +1,20 @@
 
 class Configurable {
 
-  static get TYPE_OBJECT() { return 0b00000000001; }
-  static get TYPE_ARRAY() { return 0b00000000010; }
-  static get TYPE_NULL() { return 0b00000000100; }
-  static get TYPE_NUMBER() { return 0b00000001000; }
-  static get TYPE_REGEXP() { return 0b00000010000; }
-  static get TYPE_BOOLEAN() { return 0b00000100000; }
-  static get TYPE_FUNCTION() { return 0b00001000000; }
-  static get TYPE_STRING() { return 0b00010000000; }
-  static get TYPE_UNDEFINED() { return 0b00100000000; }
-  static get TYPE_PROMISE() { return 0b01000000000; }
-  static get TYPE_MODULE() { return 0b10000000000; }
-  static get TYPE_ALL() { return 0b11111111111; }
+  static get TYPE_OBJECT()    { return 0b0000000000000001; }
+  static get TYPE_ARRAY()     { return 0b0000000000000010; }
+  static get TYPE_NULL()      { return 0b0000000000000100; }
+  static get TYPE_NUMBER()    { return 0b0000000000011000; }
+  static get TYPE_INTEGER()   { return 0b0000000000001000; }
+  static get TYPE_FLOAT()     { return 0b0000000000010000; }
+  static get TYPE_REGEXP()    { return 0b0000000000100000; }
+  static get TYPE_BOOLEAN()   { return 0b0000000001000000; }
+  static get TYPE_FUNCTION()  { return 0b0000000010000000; }
+  static get TYPE_STRING()    { return 0b0000000100000000; }
+  static get TYPE_UNDEFINED() { return 0b0000001000000000; }
+  static get TYPE_PROMISE()   { return 0b0000010000000000; }
+  static get TYPE_MODULE()    { return 0b0000100000000000; }
+  static get TYPE_ALL()       { return 0b1111111111111111; }
 
   static type(some, mask) {
     let type = typeof some,
@@ -20,7 +22,13 @@ class Configurable {
 
     switch (type) {
       case 'number':
-        bin = this.TYPE_NUMBER;
+        if (~~some === some) {
+          bin = this.TYPE_INTEGER;
+          type = 'integer';
+        } else {
+          bin = this.TYPE_FLOAT;
+          type = 'float';
+        }
         break;
       case 'string':
         bin = this.TYPE_STRING;
@@ -29,12 +37,7 @@ class Configurable {
         bin = this.TYPE_BOOLEAN;
         break;
       case 'function':
-        if (some instanceof Promise) {
-          bin = this.TYPE_PROMISE;
-          type = 'promise';
-        } else {
-          bin = this.TYPE_FUNCTION;
-        }
+        bin = this.TYPE_FUNCTION;
         break;
       case 'undefined':
         bin = this.TYPE_UNDEFINED;
@@ -49,6 +52,12 @@ class Configurable {
         } else if (some instanceof RegExp) {
           bin = this.TYPE_REGEXP;
           type = 'regexp';
+        } else if (some instanceof Promise) {
+            bin = this.TYPE_PROMISE;
+            type = 'promise';
+        } else if (some instanceof require('./module')) {
+          bin = this.TYPE_MODULE;
+          type = 'module';
         } else {
           bin = this.TYPE_OBJECT;
         }
@@ -85,7 +94,11 @@ class Configurable {
     return source;
   }
 
-  static combine_number(target, source) {
+  static combine_integer(target, source) {
+    return source;
+  }
+
+  static combine_float(target, source) {
     return source;
   }
 
@@ -120,7 +133,7 @@ class Configurable {
   static combine(target, sources, combiners = {}) {
     let targetType = this.type(target),
         combineType = `combine_${targetType}`,
-        combineFunction = combiners[combineType] || this[combineType];
+        combineFunction = combiners[combineType] || combiners[targetType] || this[combineType];
 
     sources = sources.slice(0);
 
@@ -172,7 +185,6 @@ class Configurable {
 
     return next().then(() => collection);
   }
-
 
   constructor(config) {
     this.configure(config);
