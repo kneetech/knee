@@ -24,7 +24,7 @@ class Module extends Configurable {
   static create() {
     let config = {};
 
-    if (this.constructor.type(process.argv[2], this.constructor.TYPE_STRING)) {
+    if (this.type(process.argv[2], this.constructor.TYPE_STRING)) {
       config = require(process.argv.splice(2, 1)[0]);
     }
 

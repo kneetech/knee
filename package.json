@@ -1,6 +1,9 @@
 {
   "name": "framework",
   "version": "0.0.1",
+  "bin": {
+    "framework": "index.js"
+  },
   "scripts": {
     "test": "./node_modules/.bin/mocha tests/**"
   },
