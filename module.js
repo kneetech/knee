@@ -79,26 +79,28 @@ class Module extends Configurable {
     if (this.constructor.type(basename, this.constructor.TYPE_STRING)) {
       this.moduleInject(target, basename, module);
     } else if (this.constructor.type(basename, this.constructor.TYPE_OBJECT)) {
-      for (let key in basename) {
-        if (basename.hasOwnProperty(key)) {
-          let name = basename[key],
-              value;
+      return this.constructor.queue(Object.keys(basename), (key) => {
+        let name = basename[key],
+            value;
 
-          if (this.constructor.type(name, this.constructor.TYPE_STRING)) {
-            if (this.constructor.type(module[name], this.constructor.TYPE_FUNCTION)) {
-              value = module[name].bind(module);
-            } else {
-              value = module[name];
-            }
-          } else if (this.constructor.type(name, this.constructor.TYPE_FUNCTION)) {
-            value = name(module);
+        if (this.constructor.type(name, this.constructor.TYPE_STRING)) {
+          if (this.constructor.type(module[name], this.constructor.TYPE_FUNCTION)) {
+            value = module[name].bind(module);
           } else {
-            throw new Error(`Свойство ${module.constructor.name}.__basename.${key} содержит не допустимое значение`);
+            value = module[name];
           }
+        } else if (this.constructor.type(name, this.constructor.TYPE_FUNCTION)) {
+          value = name(module);
 
-          this.moduleInject(target, key, value);
+          if (this.constructor.type(value, this.constructor.TYPE_PROMISE)) {
+            return value.then((value) => this.moduleInject(target, key, value));
+          }
+        } else {
+          throw new Error(`Свойство ${module.constructor.name}.__basename.${key} содержит не допустимое значение`);
         }
-      }
+
+        this.moduleInject(target, key, value);
+      });
     }
   }
 
@@ -132,9 +134,9 @@ class Module extends Configurable {
       return instance.onInitialized
           .then(() => {
             if (config.hasOwnProperty(this.constructor.KEY_BASENAME)) {
-              this.moduleBased(this, config[this.constructor.KEY_BASENAME], instance);
+              return this.moduleBased(this, config[this.constructor.KEY_BASENAME], instance);
             } else if (instance.hasOwnProperty(this.constructor.KEY_BASENAME)) {
-              this.moduleBased(this, instance[this.constructor.KEY_BASENAME], instance);
+              return this.moduleBased(this, instance[this.constructor.KEY_BASENAME], instance);
             }
           });
     }
@@ -146,9 +148,9 @@ class Module extends Configurable {
     }
 
     if (config.hasOwnProperty(this.constructor.KEY_BASENAME)) {
-      this.moduleBased(this, config[this.constructor.KEY_BASENAME], instance);
+      return this.moduleBased(this, config[this.constructor.KEY_BASENAME], instance);
     } else if (instance.hasOwnProperty(this.constructor.KEY_BASENAME)) {
-      this.moduleBased(this, instance[this.constructor.KEY_BASENAME], instance);
+      return this.moduleBased(this, instance[this.constructor.KEY_BASENAME], instance);
     } else {
       throw new Error(`Не удалось включить модуль ${instance.constructor.name} в ${this.constructor.name} т.к. не определена опция __basename`);
     }

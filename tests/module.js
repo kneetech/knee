@@ -342,6 +342,25 @@ describe('Module', function(){
         }]
       });
     });
+
+    it('должен установить свойство из функции которая вернёт Promise', (done) => {
+      new Module({
+        initialize() {
+          this.value.should.be.equal('foobar');
+          done();
+        },
+
+        modules: [{
+          __basename: {
+            value(instance) {
+              return new Promise((resolve) => setTimeout(() => resolve(instance.value + 'bar'), 0));
+            }
+          },
+
+          value: 'foo'
+        }]
+      });
+    });
   });
 
   context('share', () => {
@@ -357,10 +376,10 @@ describe('Module', function(){
 
         modules: [{
           prop: 'value', // включение простого модуля со свойством 'prop'
-          __share: 'myModule' // и егоо публикация под имененм 'myModule'
+          __define: 'myModule' // и егоо публикация под имененм 'myModule'
         }, {
           __inject: 'myModule', // включение опубликованного модуля с именем 'myModule'
-          __share: 'myModule2', // его перепубликация с имененм 'myModule2'
+          __define: 'myModule2', // его перепубликация с имененм 'myModule2'
           __basename: 'sharedModule' // включение в родительский модуль под имененм 'sharedModule'
         }, {
           __inject: 'myModule2', // включение опубликованного модуля с имененм 'myModule2'
