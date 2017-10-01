@@ -1,4 +1,4 @@
-# framework
+# knee
 
 Пакет предоставляет высокоуровневую модульную систему для прототипирования и создания приложений.
 
@@ -53,7 +53,7 @@
 
     // modules/log.js
     
-    const Module = require('framework/module');
+    const Module = require('knee/module');
     
     class Log extends Module {
       output(message) {
@@ -75,7 +75,7 @@
 
     // modules/main.js
     
-    const Module = require('framework/module');
+    const Module = require('knee/module');
     
     class Main extends Module {
       initialize() {
@@ -154,17 +154,17 @@
 
 Для того что бы определить модуль в файле, нужно
 
-1. Подключить файл framework-модуля `framework/module`;
-1. Создать класс и наследовать его от подключенного framework-модуля;
+1. Подключить файл knee-модуля `knee/module`;
+1. Создать класс и наследовать его от подключенного knee-модуля;
 1. Экспортировать созданный класс
 
-Допустим, что пакет `framework` подключен к текущему пакету при помощи вызова `npm install framework`. Тогда объявление
+Допустим, что пакет `knee` подключен к текущему пакету при помощи вызова `npm install knee`. Тогда объявление
 пользовательского модуля в файле будет выглядеть так
 
-    // подключение framework-модуля
-    const Module = require('framework/module');
+    // подключение knee-модуля
+    const Module = require('knee/module');
     
-    // объявление класса-модуля, наследуемого от framework-модуля
+    // объявление класса-модуля, наследуемого от knee-модуля
     class MyModule extends Module {
       initialize() {
         console.log('Пользовательский модуль был загружен');
@@ -221,7 +221,7 @@
 
 1. Только `__basename`
 
-В этом случае будет создан "чистый" модуль, который будет являться экземпляром framework-модуля и будет содержать только
+В этом случае будет создан "чистый" модуль, который будет являться экземпляром knee-модуля и будет содержать только
 сконфигурированные свойства. Благодаря опции `__basename` у родительского модуля будет ссылка на этот экземпляр.
 Определять эту опцию у корневого модуля безсмысленно, данная опция просто будет одним из его свойств.
 
@@ -305,14 +305,14 @@
 Для того что бы запустить какое бы то ни было приложение, всегда нужен тот или иной файл конфигурации. В самом простом
 виде запуск приложения будет выглядеть так
 
-    /path/to/framework/index.js /path/to/config/file.js
+    /path/to/knee/index.js /path/to/config/file.js
 
-То есть файлу framework пакета index.js нужно передать в качестве первого аргумента файл конфигурации.
+То есть файлу knee пакета index.js нужно передать в качестве первого аргумента файл конфигурации.
 
 Для того что бы можно было удобно подключать модули, как было показано в примерах нужно определить переменную окружения
 NODE_PATH. Например так
 
-    NODE_PATH=/path/to/framework node /path/to/framework/index.js /path/to/config/file.js
+    NODE_PATH=/path/to/knee node /path/to/knee/index.js /path/to/config/file.js
 
 #### Примеры простых приложений
 
@@ -328,7 +328,7 @@ NODE_PATH. Например так
 
     // modules/hello.js
     
-    const Module = require('framework/module');
+    const Module = require('knee/module');
     
     class Hello extends Module {
       initialize() {
@@ -346,7 +346,7 @@ NODE_PATH. Например так
 
     // modules/printer.js
     
-    const Module = require('framework/module');
+    const Module = require('knee/module');
     
     class Printer extends Module {
       initialize() {
