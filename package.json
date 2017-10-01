@@ -1,6 +1,24 @@
 {
-  "name": "framework",
+  "name": "knee",
+  "description": "High-level modular system",
+  "keywords": ["module", "knee"],
+  "homepage": "https://bitbucket.org/mysteryshack/knee",
+  "bugs": {
+    "email": "atlantidu@gmail.com"
+  },
   "version": "0.0.1",
+  "files": [
+    "*.js",
+    "README.md"
+  ],
+  "main": "module.js",
+  "directories": {
+    "test": "tests"
+  },
+  "engines": {
+    "node": ">=6.0.0"
+  },
+  "repository": "git@bitbucket.org:mysteryshack/knee.git",
   "bin": {
     "framework": "index.js"
   },
@@ -10,5 +28,10 @@
   "devDependencies": {
     "mocha": "^3.4.2",
     "should": "^11.2.1"
-  }
+  },
+  "contributors": [
+    "Viktor Dakalov <atlantidu@gmail.com>",
+    "Maxim Korshunov <korshunov.m.e@gmail.com>"
+  ],
+  "license": "GPL-3.0"
 }
