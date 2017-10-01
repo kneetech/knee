@@ -69,7 +69,7 @@ class Module extends Configurable {
 
   moduleInject(target, name, module) {
     if (target.hasOwnProperty(name)) {
-      throw new Error(`Установить модуль ${module.constructor.name} в ${target.constructor.name}, т.к. свойство с именем "${name}" уже определено`);
+      throw new Error(`Не удалось установить модуль ${module.constructor.name} в ${target.constructor.name}, т.к. свойство с именем "${name}" уже определено`);
     }
 
     target[name] = module;
