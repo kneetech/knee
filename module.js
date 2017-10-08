@@ -1,4 +1,4 @@
-const Configurable = require('configurable');
+const Configurable = require('./configurable');
 
 const scope = {};
 
