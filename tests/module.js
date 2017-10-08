@@ -277,7 +277,7 @@ describe('Module', function(){
     class Test extends Module {}
     Test.defaults = { prop1: { value: 100 }, prop2: { value: 200, list: ['a', 'b', 'c'] }, prop3: 20 };
 
-    let test = new Test({ prop2: { some: 300, list: [undefined, 'x'] }, pro3: undefined });
+    let test = new Test({ prop2: { some: 300, list: [undefined, 'x'] }, prop3: undefined });
 
     test.should.be.have.property('prop1');
     test.prop1.should.be.have.property('value', 100);
@@ -367,23 +367,17 @@ describe('Module', function(){
     it('Публикация модуля', (done) => {
       new Module({
         initialize() {
-          // доступ ко включённым модулям
           this.sharedModule.prop.should.be.equal('value');
-          this.sharedModule2.prop.should.be.equal('value');
 
           done();
         },
 
         modules: [{
-          prop: 'value', // включение простого модуля со свойством 'prop'
-          __define: 'myModule' // и егоо публикация под имененм 'myModule'
+          __define: 'myModule',
+          prop: 'value'
         }, {
-          __inject: 'myModule', // включение опубликованного модуля с именем 'myModule'
-          __define: 'myModule2', // его перепубликация с имененм 'myModule2'
-          __basename: 'sharedModule' // включение в родительский модуль под имененм 'sharedModule'
-        }, {
-          __inject: 'myModule2', // включение опубликованного модуля с имененм 'myModule2'
-          __basename: 'sharedModule2' // влключение его в родительский модуль под именем 'sharedModule2'
+          __inject: 'myModule',
+          __basename: 'sharedModule'
         }]
       })
     });

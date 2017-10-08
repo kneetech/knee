@@ -1,12 +1,15 @@
 {
   "name": "knee",
   "description": "High-level modular system",
-  "keywords": ["module", "knee"],
+  "keywords": [
+    "module",
+    "knee"
+  ],
   "homepage": "https://bitbucket.org/mysteryshack/knee",
   "bugs": {
     "email": "atlantidu@gmail.com"
   },
-  "version": "0.0.2",
+  "version": "0.0.3",
   "files": [
     "*.js",
     "README.md"
@@ -20,7 +23,7 @@
   },
   "repository": "git@bitbucket.org:mysteryshack/knee.git",
   "bin": {
-    "framework": "index.js"
+    "knee": "index.js"
   },
   "scripts": {
     "test": "./node_modules/.bin/mocha tests/**"

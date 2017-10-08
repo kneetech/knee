@@ -1,190 +1,131 @@
-const Configurable = require('./configurable');
-const path = require('path');
+const Configurable = require('configurable');
 
-/**
- * Модуль
- * @property {String} __filename Имя файла модуля
- * @property {String|Object} __basename Имя модуля в родительском модуле
- * @property {Array} modules Дочерние модули
- */
-class Module extends Configurable {
+const scope = {};
 
-  static get KEY_BASENAME() { return '__basename'; }
-  static get KEY_FILENAME() { return '__filename'; }
-  static get KEY_DEFINE() { return '__define'; }
-  static get KEY_INJECT() { return '__inject'; }
-  static get KEY_MODULES() { return 'modules'; }
-  static get KEY_DEFAULTS() { return 'defaults'; }
-  static get KEY_INITIALIZE() { return 'initialize'; }
-
-  /**
-   * Создаст эксземпляр с конфигурацией принятой в process.argv[2]
-   * @return {Module}
-   */
-  static create() {
-    let config = {};
-
-    if (this.type(process.argv[2], this.constructor.TYPE_STRING)) {
-      config = require(process.argv.splice(2, 1)[0]);
-    }
-
-    return new this(config);
+function getFromScope(name) {
+  if (!scope.hasOwnProperty(name)) {
+    throw new Error(`Модуль "${name}" не найден среди опубликованных (${Object.keys(scope).join()})`);
   }
 
-  configure(config) {
-    if (this.constructor.hasOwnProperty(this.constructor.KEY_DEFAULTS)) {
-      config = Module.combine({}, [this.constructor[this.constructor.KEY_DEFAULTS], config]);
+  return scope[name];
+}
+
+function setToScope(name, instance) {
+  if (scope.hasOwnProperty(name)) {
+    throw new Error(`Модуль с имененм ${name} уже был опубликован ранее (${Object.keys(scope).join()})`);
+  }
+
+  return scope[name] = instance;
+}
+
+function loadModules(module) {
+  if (module.hasOwnProperty('modules')) {
+    return Configurable.queue(module.modules, (config) => loadModule(module, config));
+  }
+}
+
+function loadModule(module, config) {
+
+  if (config.hasOwnProperty('__inject')) {
+    let submodule = getFromScope(config.__inject);
+
+    if (config.hasOwnProperty('__basename')) {
+      mountModule(module, config.__basename, submodule);
+    } else if (submodule.hasOwnProperty('__basename')) {
+      mountModule(module, submodule.__basename, submodule);
+    }
+  } else {
+    let submodule = Module.init(config);
+
+    if (submodule.hasOwnProperty('__basename')) {
+      return submodule.onInitialized
+        .then(() => mountModule(module, submodule.__basename, submodule));
+    }
+  }
+}
+
+function mountModule(module, basename, submodule) {
+  function set(module, name, value) {
+    if (module.hasOwnProperty(name)) {
+      throw new Error(`Свойство ${module.constructor.name}.${name} не может быть переопределено`);
+    }
+
+    module[name] = value;
+  }
+
+  if (typeof basename === 'string') {
+    set(module, basename, submodule);
+  } else {
+    return Configurable.queue(Object.keys(basename), (key) => {
+      let value = basename[key];
+
+      if (typeof value === 'function') {
+        value = value(submodule);
+
+        if (value instanceof Promise) {
+          return value.then((value) => {
+            set(module, key, value);
+          });
+        }
+
+      } else if (typeof value === 'string') {
+        if (!submodule.hasOwnProperty(value)) {
+          throw new Error(`Модуль не имеет свойства ${submodule.constructor.name}.${value} указанного в __basename`);
+        }
+
+        if (typeof submodule[value] === 'function') {
+          value = submodule[value].bind(submodule);
+        } else {
+          value = submodule[value];
+        }
+      } else {
+        throw new Error(`Неправильный форма __basename`);
+      }
+
+      set(module, key, value);
+    });
+  }
+}
+
+class Module extends Configurable {
+
+  static init(config) {
+
+    let Class = this;
+
+    if (config.hasOwnProperty('__filename')) {
+      Class = require(config.__filename);
+    }
+
+    if (Class.hasOwnProperty('defaults')) {
+      config = this.combine(config, [Class.defaults]);
+    }
+
+    return new Class(config);
+  }
+
+  configure(config = {}) {
+
+    if (this.constructor.hasOwnProperty('defaults')) {
+      config = this.constructor.combine({}, [this.constructor.defaults, config]);
     }
 
     super.configure(config);
 
+    if (config && config.hasOwnProperty('__define')) {
+      setToScope(config.__define, this);
+    }
+
     this.onInitialized = Promise.resolve()
-        .then(() => this.modulesLoad())
-        .then(() => this[this.constructor.KEY_INITIALIZE]())
-        .catch((error) => console.error(error));
+      .then(() => loadModules(this))
+      .then(() => this.initialize())
+      .catch((error) => console.error(error));
   }
 
   initialize() {
 
   }
 
-  /**
-   * Создаст экземпляр модуля из конфигурации
-   * @param {Object} config
-   * @return {Module}
-   */
-  moduleCreate(config) {
-    let Class = Module;
-
-    if (config.hasOwnProperty(this.constructor.KEY_FILENAME)) {
-      if (/^\.\.?\//.test(config[this.constructor.KEY_FILENAME])) {
-        Class = require(path.resolve(this[this.constructor.KEY_FILENAME], config[this.constructor.KEY_FILENAME]));
-      } else {
-        Class = require(config[this.constructor.KEY_FILENAME]);
-      }
-    }
-
-    return new Class(config);
-  }
-
-  moduleInject(target, name, module) {
-    if (target.hasOwnProperty(name)) {
-      throw new Error(`Не удалось установить модуль ${module.constructor.name} в ${target.constructor.name}, т.к. свойство с именем "${name}" уже определено`);
-    }
-
-    target[name] = module;
-  }
-
-  moduleBased(target, basename, module) {
-    if (this.constructor.type(basename, this.constructor.TYPE_STRING)) {
-      this.moduleInject(target, basename, module);
-    } else if (this.constructor.type(basename, this.constructor.TYPE_OBJECT)) {
-      return this.constructor.queue(Object.keys(basename), (key) => {
-        let name = basename[key],
-            value;
-
-        if (this.constructor.type(name, this.constructor.TYPE_STRING)) {
-          if (this.constructor.type(module[name], this.constructor.TYPE_FUNCTION)) {
-            value = module[name].bind(module);
-          } else {
-            value = module[name];
-          }
-        } else if (this.constructor.type(name, this.constructor.TYPE_FUNCTION)) {
-          value = name(module);
-
-          if (this.constructor.type(value, this.constructor.TYPE_PROMISE)) {
-            return value.then((value) => this.moduleInject(target, key, value));
-          }
-        } else {
-          throw new Error(`Свойство ${module.constructor.name}.__basename.${key} содержит не допустимое значение`);
-        }
-
-        this.moduleInject(target, key, value);
-      });
-    }
-  }
-
-  /**
-   * Загрузит модули
-   * @return {Promise}
-   */
-  modulesLoad() {
-    if (this.hasOwnProperty(this.constructor.KEY_MODULES)) {
-      return this.constructor.queue(this[this.constructor.KEY_MODULES], (config) => this.moduleLoad(config));
-    }
-  }
-
-  /**
-   * Загрузит модули из конфигурации
-   * @param {Object} config
-   * @param {String} config.__inject
-   * @param {String} config.__share
-   * @param {String|Object} config.__basename
-   * @param {String} config.__filename
-   * @return {Promise}
-   */
-  moduleLoad(config) {
-    if (!config.hasOwnProperty(this.constructor.KEY_INJECT)) {
-      let instance = this.moduleCreate(config);
-
-      if (config.hasOwnProperty(this.constructor.KEY_DEFINE)) {
-        this.moduleSetToScope(config[this.constructor.KEY_DEFINE], instance);
-      }
-
-      return instance.onInitialized
-          .then(() => {
-            if (config.hasOwnProperty(this.constructor.KEY_BASENAME)) {
-              return this.moduleBased(this, config[this.constructor.KEY_BASENAME], instance);
-            } else if (instance.hasOwnProperty(this.constructor.KEY_BASENAME)) {
-              return this.moduleBased(this, instance[this.constructor.KEY_BASENAME], instance);
-            }
-          });
-    }
-
-    let instance = this.moduleGetFromScope(config[this.constructor.KEY_INJECT]);
-
-    if (config.hasOwnProperty(this.constructor.KEY_DEFINE)) {
-      this.moduleSetToScope(config[this.constructor.KEY_DEFINE], instance);
-    }
-
-    if (config.hasOwnProperty(this.constructor.KEY_BASENAME)) {
-      return this.moduleBased(this, config[this.constructor.KEY_BASENAME], instance);
-    } else if (instance.hasOwnProperty(this.constructor.KEY_BASENAME)) {
-      return this.moduleBased(this, instance[this.constructor.KEY_BASENAME], instance);
-    } else {
-      throw new Error(`Не удалось включить модуль ${instance.constructor.name} в ${this.constructor.name} т.к. не определена опция __basename`);
-    }
-  }
-
-  moduleGetFromScope(name) {
-    if (!this.constructor.type(name, this.constructor.TYPE_STRING)) {
-      throw new Error(`Неправильное имя модуля ${name}`);
-    }
-
-    if (!this.constructor.scope.hasOwnProperty(name)) {
-      throw new Error(`Модуль "${name}" не найден среди опубликованных (${Object.keys(this.constructor.scope).join()})`);
-    }
-
-    return this.constructor.scope[name];
-  }
-
-  moduleSetToScope(name, module) {
-    if (!this.constructor.type(name, this.constructor.TYPE_STRING)) {
-      throw new Error(`Неправильное имя модуля ${name}`);
-    }
-
-    if (!this.constructor.type(module, this.constructor.TYPE_MODULE)) {
-      throw new Error(`Не является модулем ${this.constructor.type(module)}`);
-    }
-
-    if (this.constructor.scope.hasOwnProperty(name)) {
-      throw new Error(`Модуль с имененм ${name} уже был опубликован ранее (${Object.keys(this.constructor.scope).join()})`);
-    }
-
-    this.constructor.scope[name] = module;
-  }
 }
-
-Module.scope = {};
 
 module.exports = Module;
