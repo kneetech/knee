@@ -4,7 +4,7 @@
 
 ### Установка
 
-```
+```bash
 npm install knee
 ```
 
@@ -15,39 +15,45 @@ npm install knee
 Система позволяет в удобном и наглядном виде написать приложение сразу же разбивая его на отдельные модули. И всё
 это можно сделать в одном файле. Вот пример:
 
-    // ./config.js
-    
-    module.exports = {
-      name: 'корневой модуль (основное приложеное)', // данное свойство не обязательно
-      
-      // конструктор, будет вызван когда все зависимые модули будут готовы к работе
-      initialize() {
-        // метод log, мы не объявляли он был взят из подмодуля
-        this.log('Я загрузился');
+```js
+// ./config.js
+
+module.exports = {
+  name: 'корневой модуль (основное приложеное)', // данное свойство не обязательно
+  
+  // конструктор, будет вызван когда все зависимые модули будут готовы к работе
+  initialize() {
+    // метод log, мы не объявляли он был взят из подмодуля
+    this.log('Я загрузился');
+  },
+  
+  modules: [
+    {
+      // опция __basename описывает, как этот модуль нужно включить в родительский модуль
+      // в данном случае в родительский модуль включается функция output в свойство log.
+      // функция будет привязана к контексту этого модуля
+      __basename: {
+        log: 'output'
       },
-      
-      modules: [
-        {
-          // опция __basename описывает, как этот модуль нужно включить в родительский модуль
-          // в данном случае в родительский модуль включается функция output в свойство log.
-          // функция будет привязана к контексту этого модуля
-          __basename: {
-            log: 'output'
-          },
-          output(message) {
-            console.log(`[${new Date()}] ${message}`);
-          }
-        }
-      ]
-    };
+      output(message) {
+        console.log(`[${new Date()}] ${message}`);
+      }
+    }
+  ]
+};
+```
 
 Результатом выполнения в терминале (при условии что cwd указывает на корневую директорию пакета)
 
-    NODE_PATH=$(pwd) node ./index.js ./config.js
+```bash
+NODE_PATH=$(pwd) node ./index.js ./config.js
+```
 
 будет строка
 
-    [Fri Sep 01 2017 20:18:44 GMT+0500 (+05)] Я загрузился
+```
+[Fri Sep 01 2017 20:18:44 GMT+0500 (+05)] Я загрузился
+```
 
 Теперь о том, что мы сейчас сделали, по порядку
 
@@ -59,59 +65,67 @@ npm install knee
 Допустим, что описанный выше прототип и есть наше законченное приложение. В этом случае его нужно будет разнести по
 отдельным файлам. Например так:
 
-    // modules/log.js
-    
-    const Module = require('knee/module');
-    
-    class Log extends Module {
-      output(message) {
-        console.log(`[${new Date()}] ${message}`);
-      }
-    }
-    
-    // конфигурация по умолчанию: тот, кто подключит этот модуль и не переопределит описанное здесь стандартное свойство
-    // __basename, тот получит в свой модуль свойство log, в котором будет функция output
-    Log.defaults = {
-      __basename: {
-        log: 'output'
-      }
-    };
-    
-    module.exports = Log;
+```js
+// modules/log.js
+
+const Module = require('knee/module');
+
+class Log extends Module {
+  output(message) {
+    console.log(`[${new Date()}] ${message}`);
+  }
+}
+
+// конфигурация по умолчанию: тот, кто подключит этот модуль и не переопределит описанное здесь стандартное свойство
+// __basename, тот получит в свой модуль свойство log, в котором будет функция output
+Log.defaults = {
+  __basename: {
+    log: 'output'
+  }
+};
+
+module.exports = Log;
+```
 
 и главный модуль
 
-    // modules/main.js
-    
-    const Module = require('knee/module');
-    
-    class Main extends Module {
-      initialize() {
-        this.log('Я загрузился');
-      }
-    }
-    
-    // раз уж этот модуль зависит от Log, пропишем его в зависимостях по умолчанию. Но при запуске это можно будет
-    // переопределить на более подходящий подмодуль с аналогичным интерфейсом
-    Main.defaults = {
-      modules: [{
-        __filename: 'modules/log'
-      }]
-    };
-    
-    module.exports = Main;
+```js
+// modules/main.js
+
+const Module = require('knee/module');
+
+class Main extends Module {
+  initialize() {
+    this.log('Я загрузился');
+  }
+}
+
+// раз уж этот модуль зависит от Log, пропишем его в зависимостях по умолчанию. Но при запуске это можно будет
+// переопределить на более подходящий подмодуль с аналогичным интерфейсом
+Main.defaults = {
+  modules: [{
+    __filename: 'modules/log'
+  }]
+};
+
+module.exports = Main;
+```
 
 Тем не менее конфигурация всё равно потребуется
 
-    // config/default.js
-    
-    module.exports = {
-      __filename: 'modules/main'
-    };
+```js
+// config/default.js
+
+module.exports = {
+  __filename: 'modules/main'
+};
+```
 
 Теперь запускаем
 
-    NODE_PATH=$(pwd) node ./index.js config/default
+```bash
+NODE_PATH=$(pwd) node ./index.js config/default
+```
 
 И снова обо всём по порядку
 
@@ -169,46 +183,52 @@ npm install knee
 Допустим, что пакет `knee` подключен к текущему пакету при помощи вызова `npm install knee`. Тогда объявление
 пользовательского модуля в файле будет выглядеть так
 
-    // подключение knee-модуля
-    const Module = require('knee/module');
-    
-    // объявление класса-модуля, наследуемого от knee-модуля
-    class MyModule extends Module {
-      initialize() {
-        console.log('Пользовательский модуль был загружен');
-      }
-    }
-    
-    // экпорт клсса-модуля
-    module.exports = MyModule;
+```js
+// подключение knee-модуля
+const Module = require('knee/module');
 
+// объявление класса-модуля, наследуемого от knee-модуля
+class MyModule extends Module {
+  initialize() {
+    console.log('Пользовательский модуль был загружен');
+  }
+}
+
+// экпорт клсса-модуля
+module.exports = MyModule;
+```
+    
 Теперь этот модуль можно загрузить в конфигурации
 
-    module.exports = {
-      __filename: 'modules/mymodule'
-    };
+```js
+module.exports = {
+  __filename: 'modules/mymodule'
+};
+```
 
 #### Объявление модуля в скопе
 
 Хотя правильнее будет сказать не объявление, использование модуля из скопа (ранее туда добавленного). На самом деле
 модуль будет объявлен в конфигурации. Вот пример файла `config/default.js`
 
-    module.exports = {
-    
-      modules: [
-        { // объявление какого-то модуля
-          __define: 'MyModule', // добавляем его в скоп
-          bar: 'foo' // это просто какое-то свойство характеризующее модуль
-        },
-    
-        { // а это уже не определение модуля, а ссылка на существующий модуль
-          __inject: 'MyModule',
-          __basename: 'my' // опция __basename обязательна, если модуль загружается из скопа
-          // определять какие либо пользовательский свойства безсмысленно и они будут проигнорированы
-        }
-      ]
-    
-    };
+```js
+module.exports = {
+
+  modules: [
+    { // объявление какого-то модуля
+      __define: 'MyModule', // добавляем его в скоп
+      bar: 'foo' // это просто какое-то свойство характеризующее модуль
+    },
+
+    { // а это уже не определение модуля, а ссылка на существующий модуль
+      __inject: 'MyModule',
+      __basename: 'my' // опция __basename обязательна, если модуль загружается из скопа
+      // определять какие либо пользовательский свойства безсмысленно и они будут проигнорированы
+    }
+  ]
+
+};
+```
 
 #### Опции конфигурации
 
@@ -290,21 +310,23 @@ npm install knee
 
 Так вот в место `'output'` может быть не только любая другая строка, но и функция. Вот пример
 
-    {
-      initialize() {
-        // попытка записать что-то в коллекцию, но откуда она должна взяться?
-        this.collection.insertOne({ text: 'Some text...' });
-      },
-      
-      modules: [{
-        __inject: 'db',
-        __basename: {
-          // имя функции "collection" - определяет свойство в родительском модуле,
-          // а значение вернёт функция
-          collection(instance) { return instance.collection('НАЗВАНИЕ_КОЛЛЕКЦИИ'); }
-        }
-      }]
+```js
+{
+  initialize() {
+    // попытка записать что-то в коллекцию, но откуда она должна взяться?
+    this.collection.insertOne({ text: 'Some text...' });
+  },
+  
+  modules: [{
+    __inject: 'db',
+    __basename: {
+      // имя функции "collection" - определяет свойство в родительском модуле,
+      // а значение вернёт функция
+      collection(instance) { return instance.collection('НАЗВАНИЕ_КОЛЛЕКЦИИ'); }
     }
+  }]
+}
+```
 
 В этом случае в функцию в первом аргументе был передан экземпляр требуемого модуля `db`.
 
@@ -313,65 +335,79 @@ npm install knee
 Для того что бы запустить какое бы то ни было приложение, всегда нужен тот или иной файл конфигурации. В самом простом
 виде запуск приложения будет выглядеть так
 
-    /path/to/knee/index.js /path/to/config/file.js
+```bash
+/path/to/knee/index.js /path/to/config/file.js
+```
 
 То есть файлу knee пакета index.js нужно передать в качестве первого аргумента файл конфигурации.
 
 Для того что бы можно было удобно подключать модули, как было показано в примерах нужно определить переменную окружения
 NODE_PATH. Например так
 
-    NODE_PATH=/path/to/knee node /path/to/knee/index.js /path/to/config/file.js
+```bash
+NODE_PATH=/path/to/knee node /path/to/knee/index.js /path/to/config/file.js
+```
 
 #### Примеры простых приложений
 
 Самый простой способ напечатать в консоли "Привет мир!", это создать следующий файл конфигурации
 
-    module.exports = {
-      initialize() {
-        console.log('Привет мир!');
-      }
-    };
+```js
+module.exports = {
+  initialize() {
+    console.log('Привет мир!');
+  }
+};
+```
 
 Можно сделать тоже самое, но определив модуль в отдельном файле
 
-    // modules/hello.js
-    
-    const Module = require('knee/module');
-    
-    class Hello extends Module {
-      initialize() {
-        console.log('Привет мир!');
-      }
-    }
+```js
+// modules/hello.js
+
+const Module = require('knee/module');
+
+class Hello extends Module {
+  initialize() {
+    console.log('Привет мир!');
+  }
+}
+```
 
 но и файл конфигурации тоже нужен
 
-    module.exports = {
-      __filename: 'module/hello'
-    };
+```js
+module.exports = {
+  __filename: 'module/hello'
+};
+```
 
 А можно сделать более изящно. Создадим модуль, который будет печатать то, что нужно.
 
-    // modules/printer.js
-    
-    const Module = require('knee/module');
-    
-    class Printer extends Module {
-      initialize() {
-        console.log(this.message);
-      }
-    }
-    
-    Printer.defaults = {
-      message: 'Текст для вывода не был определён'
-    };
-    
-    module.exports = Printer;
+```js
+// modules/printer.js
+
+const Module = require('knee/module');
+
+class Printer extends Module {
+  initialize() {
+    console.log(this.message);
+  }
+}
+
+Printer.defaults = {
+  message: 'Текст для вывода не был определён'
+};
+
+module.exports = Printer;
+```
 
 А в конфигурации укажем сам текст
 
-    module.exports = {
-      __filename: 'modules/printer',
-      message: 'Мы строили, строили и наконец построили! Урааа!'
-    };
+```js
+module.exports = {
+  __filename: 'modules/printer',
+  message: 'Мы строили, строили и наконец построили! Урааа!'
+};
+```
 
