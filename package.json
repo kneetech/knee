@@ -10,7 +10,7 @@
     "email": "atlantidu@gmail.com",
     "url": "https://github.com/kneetech/knee/issues"
   },
-  "version": "0.0.6",
+  "version": "0.0.7",
   "files": [
     "*.js",
     "README.md"

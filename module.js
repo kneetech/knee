@@ -70,7 +70,7 @@ class Module extends Configurable {
                 if (this.constructor.type(value, this.constructor.TYPE_PROMISE)) {
                   return value.then((value) => {
                     publish(basename.name, value);
-                  })
+                  });
                 }
 
                 publish(basename, value);
@@ -83,7 +83,7 @@ class Module extends Configurable {
                   let value = basename[key];
 
                   if (this.constructor.type(value, this.constructor.TYPE_STRING)) {
-                    if (!module.hasOwnProperty(value)) {
+                    if (value in module === false) {
                       throw new Error(`У модуля ${module.constructor.name} отсутствует публикуемое свойство ${value}`);
                     }
 
