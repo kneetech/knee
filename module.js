@@ -1,12 +1,13 @@
 const Configurable = require('./configurable');
 
 /**
+ * Конфигурация модуля
  * @typedef {Object} Config
- * @property {String} __filename
- * @property {String} __inject
- * @property {String} __define
- * @property {String|Object} __basename
- * @property {Config[]} modules
+ * @property {String} __filename Имя файла модуля
+ * @property {String} __inject Имя модуля объявленного в scope
+ * @property {String} __define Имя публикуемого модуля для в скопе
+ * @property {String|Object} __basename Описание способа публикации модуля в родительском модуле
+ * @property {Config[]} modules Конфигурации дочерних модулей
  */
 
 /**
@@ -59,14 +60,14 @@ class Module extends Configurable {
             if (config.hasOwnProperty('__basename') || module.hasOwnProperty('__basename')) {
               let basename = config.__basename || module.__basename;
 
-              if (typeof basename === 'function') {
+              if (this.constructor.type(basename, this.constructor.TYPE_FUNCTION)) {
                 if (!basename.name) {
                   throw new Error(`Не удалось определить имя функции указанной в опции __basename модуля ${module.constructor.name}`);
                 }
 
                 let value = basename(module);
 
-                if (value instanceof Promise) {
+                if (this.constructor.type(value, this.constructor.TYPE_PROMISE)) {
                   return value.then((value) => {
                     publish(basename.name, value);
                   })
@@ -74,29 +75,29 @@ class Module extends Configurable {
 
                 publish(basename, value);
 
-              } else if (typeof basename === 'string') {
+              } else if (this.constructor.type(basename, this.constructor.TYPE_STRING)) {
                 publish(basename, module);
-              } else if (typeof basename === 'object') {
+              } else if (this.constructor.type(basename, this.constructor.TYPE_OBJECT)) {
 
                 return this.constructor.queue(Object.keys(basename), (key) => {
                   let value = basename[key];
 
-                  if (typeof value === 'string') {
+                  if (this.constructor.type(value, this.constructor.TYPE_STRING)) {
                     if (!module.hasOwnProperty(value)) {
                       throw new Error(`У модуля ${module.constructor.name} отсутствует публикуемое свойство ${value}`);
                     }
 
-                    if (typeof module[value] === 'function') {
+                    if (this.constructor.type(module[value], this.constructor.TYPE_FUNCTION)) {
                       value = module[value].bind(module);
                     } else {
                       value = module[value];
                     }
 
                     publish(key, value);
-                  } else if (typeof value === 'function') {
+                  } else if (this.constructor.type(value, this.constructor.TYPE_FUNCTION)) {
                     value = value(module);
 
-                    if (value instanceof Promise) {
+                    if (this.constructor.type(value, this.constructor.TYPE_PROMISE)) {
                       return value.then((value) => publish(key, value));
                     }
 
@@ -105,7 +106,7 @@ class Module extends Configurable {
                 });
 
               } else {
-                throw new Error(`Неправильный формат опции __basename (${typeof basename})`);
+                throw new Error(`Неправильный формат опции __basename (${this.constructor.type(basename)})`);
               }
             }
           });
