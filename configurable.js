@@ -1,4 +1,6 @@
-
+/**
+ * Конфигурируемый объект
+ */
 class Configurable {
 
   static get TYPE_OBJECT()    { return 0b0000000000000001; }
@@ -16,6 +18,15 @@ class Configurable {
   static get TYPE_MODULE()    { return 0b0000100000000000; }
   static get TYPE_ALL()       { return 0b1111111111111111; }
 
+   /**
+    * Определит тип переменной, так же как это делает `typeof`, но
+    * в более строгом виде. Отличает не только объект от массива и null,
+    * но и разные объекты, такие как Promise, RegExp и Module.
+    *
+    * @param {*} some Переменная, тип которой нужно определить
+    * @param {Number} [mask] Маска для сравнения типов (указанного и типа переменной)
+    * @returns {String|Boolean} Если маска не передана, вернёт String
+    */
   static type(some, mask) {
     let type = typeof some,
         bin = 0;
@@ -130,6 +141,15 @@ class Configurable {
     return source;
   }
 
+   /**
+    * Объеденит объекты, массивы или любые другие типы данных.
+    * Способ объединения определён в соответствующих каждому
+    * из типов статических методах.
+    * @param {*} target Целевой объект (будет содержать результат объединения)
+    * @param {*} sources Исходный объект
+    * @param {Object} combiners Пользовательские методы объединения
+    * @returns {*}
+    */
   static combine(target, sources, combiners = {}) {
     let targetType = this.type(target),
         combineType = `combine_${targetType}`,
@@ -156,7 +176,8 @@ class Configurable {
   /**
    * Последовательно вызовет обработчик для каждого элемента коллекции
    * Если обработчик вернёт результат отличный от `undefined`, он будет
-   * записан в коллекцию
+   * записан в коллекцию. Если обработчик вернёт Promise, следущая итерация
+   * будет выполнена после реализации этого обещания
    * @param {Array|Object} collection
    * @param {Function} handler
    * @return {Promise}
@@ -190,8 +211,12 @@ class Configurable {
     this.configure(config);
   }
 
+   /**
+    * Сконфигурирует модуль параметрами
+    * @param {Object} config
+    */
   configure(config) {
-    if (typeof config === 'object' && config) {
+    if (this.constructor.type(config, this.constructor.TYPE_OBJECT)) {
       for (let name in config) {
         if (config.hasOwnProperty(name)) {
           this[name] = config[name];
